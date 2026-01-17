@@ -16,6 +16,7 @@ type Backend struct {
 type ServerPool struct {
 	Backends  []*Backend `json:"backends"`
 	Current  uint64     `json:"current"`
+	mux      sync.RWMutex
 }
 
 type ProxyConfig struct {
