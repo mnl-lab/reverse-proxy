@@ -1,0 +1,25 @@
+package proxy
+
+import (
+	"net/url"
+	"sync"
+	"time"
+)
+
+type Backend struct {
+	URL          *url.URL `json:"url"`
+	Alive        bool     `json:"alive"`
+	CurrentConns int64    `json:"current_connexctions"`
+	mux          sync.RWMutex
+}
+
+type ServerPool struct {
+	Backends  []*Backend `json:"backends"`
+	Current  uint64     `json:"current"`
+}
+
+type ProxyConfig struct {
+	Port int `json:"port"`
+	Strategy string `json:"strategy"`
+	HealthCheckFreq time.Duration `json:"health_check_frequency"`
+}

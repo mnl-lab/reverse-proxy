@@ -1,0 +1,19 @@
+{
+    "port": 8080,
+    "strategy": "round-robin",
+    "health_check_frequency": "10s",
+    "backends": [
+        {
+            "url": "http://localhost:8081",
+            "alive": true
+        },
+        {
+            "url": "http://localhost:8082",
+            "alive": true
+        },
+        {
+            "url": "http://localhost:8083",
+            "alive": true
+        }
+    ]
+}
