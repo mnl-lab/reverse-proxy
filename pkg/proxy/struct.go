@@ -23,3 +23,12 @@ type ProxyConfig struct {
 	Strategy string `json:"strategy"`
 	HealthCheckFreq time.Duration `json:"health_check_frequency"`
 }
+
+
+// helper function to make things concurrency friendly later
+func (b *Backend) IsAlive() bool {
+    b.mux.RLock() // Lock for Reading (allows multiple readers, blocks writers)
+    alive := b.Alive
+    b.mux.RUnlock()
+    return alive
+}
