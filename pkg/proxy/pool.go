@@ -45,10 +45,10 @@ func (s *ServerPool) AddBackend(backend *Backend) {
 	s.mux.Unlock()
 }
 
-func (s *ServerPool) SetBackendStatus(uri *url.URL, alive bool){
+func (s *ServerPool) SetBackendStatus(uri *url.URL, alive bool) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	for _, b:= range s.Backends {
+	for _, b := range s.Backends {
 		if b.URL.String() == uri.String() { // b.URL and uri are pointers, we compare values
 			b.mux.Lock()
 			b.Alive = alive
