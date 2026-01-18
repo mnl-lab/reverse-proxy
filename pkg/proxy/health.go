@@ -25,17 +25,17 @@ func isAlive(u *url.URL) bool {
 
 // loops forever and performs checks every  specified interval
 // REMEMBER: it starts as a go routine in main!!!!!!!!!!
-func (s *ServerPool) HealthCheck(interval time.Duration){
+func (s *ServerPool) HealthCheck(interval time.Duration) {
 	// define the clock ticker
 	t := time.NewTicker(interval)
 	// the loop
 	for {
 		// wait for tick (stop until there's a tick)
-		<- t.C
+		<-t.C
 		// check every server
 		// lock s for redingbecause it's being updated
 		s.mux.RLock()
-		for _,b := range s.Backends {
+		for _, b := range s.Backends {
 			// check if alive (ping)
 			status := isAlive(b.URL)
 			// change our knowledge of the status
