@@ -27,7 +27,7 @@ func (s *ServerPool) GetNextValidPeer() (*Backend, error) {
 	for i := range s.Backends {
 		//this is the core of the Round-Robin strategy, to create a loop in selection no matter the current index
 		idx := int((next + uint64(i)) % uint64(len(s.Backends)))
-		if s.Backends[next].IsAlive() {
+		if s.Backends[idx].IsAlive() {
 			// return the first alive valid next peer
 
 			return s.Backends[idx], nil
