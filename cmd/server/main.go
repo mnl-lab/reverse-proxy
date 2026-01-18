@@ -55,6 +55,32 @@ func main() {
 	// launch background health check
 	go serverPool.HealthCheck(freq)
 
+
+	
+	// admin dashboard wiring
+	// go routine ofc
+	go func() {
+		// create a separate router for Admin so normal users can't access it
+		adminMux := http.NewServeMux()
+		adminMux.HandleFunc("/status", serverPool.GetStatus)
+		adminMux.HandleFunc("/backends", func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodPost:
+				serverPool.AddBackendHandler(w, r)
+			case http.MethodDelete:
+				serverPool.RemoveBackendHandler(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+
+		log.Println("Admin API started on port :8081")
+		if err := http.ListenAndServe(":8081", adminMux); err != nil {
+			log.Fatalf("Admin server failed: %v", err)
+		}
+	}()
+
+
 	// start HTTP server (again...)
 	port := fmt.Sprintf(":%d", conf.Port)
 	server := http.Server{
@@ -67,5 +93,9 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+
+
+
+
 
 }

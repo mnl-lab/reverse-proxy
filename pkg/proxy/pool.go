@@ -57,3 +57,18 @@ func (s *ServerPool) SetBackendStatus(uri *url.URL, alive bool) {
 		}
 	}
 }
+
+func (s *ServerPool) RemoveBackend(backendURL *url.URL){
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	// iterate to finc the backend
+
+	for i,b := range s.Backends {
+		if b.URL.String() == backendURL.String() {
+			// the trick ;)
+			s.Backends = append(s.Backends[:i], s.Backends[i+1:]...)
+			return
+		}
+	}
+}

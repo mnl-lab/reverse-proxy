@@ -8,7 +8,7 @@ import (
 
 func main() {
 	// We will launch 3 servers in parallel using Goroutines
-	ports := []string{"8081", "8082", "8083"}
+	ports := []string{"8084", "8082", "8083"}
 
 	// Channel to keep the main function from exiting
 	forever := make(chan bool)
