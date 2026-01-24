@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  python-backend:
+    image: python:3.9-slim
+    working_dir: /app
+    volumes:
+      - ./backends/python:/app
+    command: >
+      sh -c "pip install flask && python app.py"
+    ports:
+      - "8082:8082"
+
+  node-backend:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./backends/node:/app
+    command: node server.js
+    ports:
+      - "8083:8083"

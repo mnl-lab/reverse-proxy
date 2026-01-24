@@ -4,10 +4,6 @@
     "health_check_frequency": "10s",
     "backends": [
         {
-            "url": "http://localhost:8084",
-            "alive": true
-        },
-        {
             "url": "http://localhost:8082",
             "alive": true
         },
