@@ -8,34 +8,12 @@ import (
 )
 
 type LoadBalancer interface {
-	GetNextValidPeer() (*Backend, error)
 	AddBackend(backend *Backend)
 	SetBackendStatus(uri *url.URL, alive bool)
 }
 
-func (s *ServerPool) GetNextValidPeer() (*Backend, error) {
-	// if no backends are available
-	if len(s.Backends) == 0 {
-		return nil, errors.New("no backends available")
-	}
-	// loop through the backends to find a valid one
-
-	// automatically add 1 to s.Current and returns the NEW value
-	// used to determine where to start looking exactly when multiple users are accessing the function
-	// even if 1,000 requests come in instantly, Request A gets next=1, Request B gets next=2, etc
-	next := atomic.AddUint64(&s.Current, 1)
-	for i := range s.Backends {
-		//this is the core of the Round-Robin strategy, to create a loop in selection no matter the current index
-		idx := int((next + uint64(i)) % uint64(len(s.Backends)))
-		if s.Backends[idx].IsAlive() {
-			// return the first alive valid next peer
-
-			return s.Backends[idx], nil
-		}
-	}
-	// nothing is found by here
-	return nil, errors.New("no valid peer found")
-
+type Strategy interface {
+	GetPeer(backends []*Backend) (*Backend, error)
 }
 
 func (s *ServerPool) AddBackend(backend *Backend) {
@@ -71,4 +49,67 @@ func (s *ServerPool) RemoveBackend(backendURL *url.URL){
 			return
 		}
 	}
+}
+
+
+
+// Round-Robin Strategy
+type RoundRobin struct {
+	Current uint64
+}
+
+func (rr *RoundRobin) GetPeer(backends []*Backend) (*Backend, error) {
+    // if no backends are available
+	if len(backends) == 0 {
+		return nil, errors.New("no backends available")
+	}
+	// loop through the backends to find a valid one
+
+	// automatically add 1 to s.Current and returns the NEW value
+	// used to determine where to start looking exactly when multiple users are accessing the function
+	// even if 1,000 requests come in instantly, Request A gets next=1, Request B gets next=2, etc
+	next := atomic.AddUint64(&rr.Current, 1)
+	for i := range backends {
+		//this is the core of the Round-Robin strategy, to create a loop in selection no matter the current index
+		idx := int((next + uint64(i)) % uint64(len(backends)))
+		if backends[idx].IsAlive() {
+			// return the first alive valid next peer
+
+			return backends[idx], nil
+		}
+	}
+	// nothing is found by here
+	return nil, errors.New("no valid peer found")
+}
+
+// Least-Connections Strategy
+type LeastConnections struct {}
+
+func (lc *LeastConnections) GetPeer(backends []*Backend) (*Backend, error) {
+    
+	var bestPeer *Backend
+	var minConns int64 = -1
+	// if no backends are available
+	if len(backends) == 0 {
+		return nil, errors.New("no backends available")
+	}
+
+	for _ , b := range backends {
+		// skip the backend if it's not alive
+		if ! b.IsAlive() {
+			continue
+		}
+		// use atomic load for concurrency safety
+		conns := atomic.LoadInt64(&b.CurrentConns)
+		// if we're just starting or a better value is found
+		if minConns == -1 || conns < minConns{
+			minConns = conns
+			bestPeer = b
+		}
+
+	}
+	if bestPeer == nil {
+		return nil, errors.New("no available bachend is found")
+	}
+	return bestPeer, nil
 }

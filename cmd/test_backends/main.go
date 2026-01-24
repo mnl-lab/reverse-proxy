@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	// "time"
 )
 
 func main() {
@@ -21,10 +22,12 @@ func main() {
 			// Handle the root path "/"
 			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 				// Print to the server's console so we see traffic arriving
-				log.Printf("Server on port %s received request\n", p)
+				log.Printf("Server on port %s received request. Processing...\n", p)
+				// time.Sleep(3 * time.Second) // for testing least-conn, just to simulate heavy load
 				
 				// Reply to the browser
 				fmt.Fprintf(w, "Hello from Backend Server on Port %s!", p)
+				log.Printf("Server on port %s finished processing.\n", p)
 			})
 
 			log.Printf("Backend server starting on port %s...", p)

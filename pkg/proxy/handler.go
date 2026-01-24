@@ -4,18 +4,26 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"sync/atomic"
 )
 
 // handle incoming HTTP request and forward it to a backend
 func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
-	// get a valid backend
-	peer, err := s.GetNextValidPeer()
+	// the pool asks its current strategy for a peer
+	s.mux.RLock()
+    backends := s.Backends
+    s.mux.RUnlock()
+    peer, err := s.Strategy.GetPeer(backends) 
 
-	// no valid backend is available
-	if err != nil {
-		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
-		return
-	}
+    if err != nil {
+        http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
+        return
+    }
+
+    // Safely increment connections
+    atomic.AddInt64(&peer.CurrentConns, 1)
+    defer atomic.AddInt64(&peer.CurrentConns, -1)
+	
 	// setting up the reverse proxy
 	// using the standart library helper
 	rp := httputil.NewSingleHostReverseProxy(peer.URL)
@@ -37,7 +45,7 @@ func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
 		writer.WriteHeader(http.StatusBadGateway)
 		writer.Write([]byte("The server is down"))
 	}
-
+	
 	// forward request -> Wait for Response -> Copy back to user
 	rp.ServeHTTP(w, r)
 

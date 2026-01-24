@@ -24,9 +24,21 @@ func main() {
 	}
 	log.Printf("Loaded config succesfully: Port=%d, Strategy=%s", conf.Port, conf.Strategy)
 
+	var strategy proxy.Strategy
+
+	switch conf.Strategy {
+	case "least-conn":
+		strategy = &proxy.LeastConnections{}
+	case "round-robin":
+		strategy = &proxy.RoundRobin{}
+	default:
+		strategy = &proxy.RoundRobin{} // Default fallback
+	}
+
 	// we manually build the pool to handle the URL parsing safely
 	serverPool := &proxy.ServerPool{
 		Backends: make([]*proxy.Backend, 0),
+		Strategy: strategy,
 	}
 
 	// add config backends to the pool
@@ -55,8 +67,6 @@ func main() {
 	// launch background health check
 	go serverPool.HealthCheck(freq)
 
-
-	
 	// admin dashboard wiring
 	// go routine ofc
 	go func() {
@@ -80,7 +90,6 @@ func main() {
 		}
 	}()
 
-
 	// start HTTP server (again...)
 	port := fmt.Sprintf(":%d", conf.Port)
 	server := http.Server{
@@ -93,9 +102,5 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
-
-
-
-
 
 }
