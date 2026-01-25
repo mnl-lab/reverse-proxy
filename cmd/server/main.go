@@ -101,10 +101,11 @@ func main() {
 		Handler: http.HandlerFunc(serverPool.Proxy),
 	}
 
-	log.Println("Load Balancer started on port: ", port)
+	log.Println("Secure Load Balancer started on port: ", port)
 
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	// ListenAndServeTLS takes the cert file and key file as parameters
+	if err := server.ListenAndServeTLS("cert.pem", "key.pem"); err != nil {
+		log.Fatalf("Secure Server failed: %v", err)
 	}
 
 }
