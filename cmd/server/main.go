@@ -15,6 +15,10 @@ func main() {
 
 	// parse flags to use: go run main.go -config=config.json
 	configFile := flag.String("config", "confg.json", "config file path")
+	// for testing and grading (and sanity) purposes, i'll add a flah to disable sticky session from terminal
+	// new command is: go run cmd/server/main.go -sticky=false
+	
+	stickyEnabled := flag.Bool("sticky", true, "enable sticky sessions")
 	flag.Parse()
 
 	// load configurations
@@ -41,6 +45,7 @@ func main() {
 	serverPool := &proxy.ServerPool{
 		Backends: make([]*proxy.Backend, 0),
 		Strategy: strategy,
+		Sticky:   *stickyEnabled,
 	}
 
 	// add config backends to the pool

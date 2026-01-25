@@ -13,22 +13,24 @@ import (
 func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
 	// the pool asks its current strategy for a peer
 	s.mux.RLock()
-    backends := s.Backends
-    s.mux.RUnlock()
-    // peer, err := s.Strategy.GetPeer(backends) 
-	var peer *Backend 
+	backends := s.Backends
+	s.mux.RUnlock()
+	// peer, err := s.Strategy.GetPeer(backends)
+	var peer *Backend
 	var err error
 
-	// check for existing cookie
-	cookie, cookieErr := r.Cookie("proxy_session")
-	if cookieErr == nil {
-		// the user has a cookie, we find the matching backend
-		cookieID := cookie.Value
-		for _, b := range backends {
-			if generateBackendID(b.URL.String()) == cookieID && b.IsAlive() {
-				peer = b
-				log.Printf("Sticky session detected, routing directly to: %s", b.URL)
-				break
+	if s.Sticky {
+		// check for existing cookie
+		cookie, cookieErr := r.Cookie("proxy_session")
+		if cookieErr == nil {
+			// the user has a cookie, we find the matching backend
+			cookieID := cookie.Value
+			for _, b := range backends {
+				if generateBackendID(b.URL.String()) == cookieID && b.IsAlive() {
+					peer = b
+					log.Printf("Sticky session detected, routing directly to: %s", b.URL)
+					break
+				}
 			}
 		}
 	}
@@ -44,20 +46,22 @@ func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// issue the cookie for their next visit
-		backendID := generateBackendID(peer.URL.String())
-		http.SetCookie(w, &http.Cookie{
-			Name:     "proxy_session",
-			Value:    backendID,
-			Path:     "/", // Cookie is valid for all paths
-			HttpOnly: true, // Prevents JavaScript from stealing the cookie
-			MaxAge:   3600, // Expires in 1 hour
-		})
+		if s.Sticky {
+			backendID := generateBackendID(peer.URL.String())
+			http.SetCookie(w, &http.Cookie{
+				Name:     "proxy_session",
+				Value:    backendID,
+				Path:     "/", 
+				HttpOnly: true, 
+				MaxAge:   3600, 
+			})
+		}
 	}
 
-    // Safely increment connections
-    atomic.AddInt64(&peer.CurrentConns, 1)
-    defer atomic.AddInt64(&peer.CurrentConns, -1)
-	
+	// Safely increment connections
+	atomic.AddInt64(&peer.CurrentConns, 1)
+	defer atomic.AddInt64(&peer.CurrentConns, -1)
+
 	// setting up the reverse proxy
 	// using the standart library helper
 	rp := httputil.NewSingleHostReverseProxy(peer.URL)
@@ -79,7 +83,7 @@ func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
 		writer.WriteHeader(http.StatusBadGateway)
 		writer.Write([]byte("The server is down"))
 	}
-	
+
 	// forward request -> Wait for Response -> Copy back to user
 	rp.ServeHTTP(w, r)
 

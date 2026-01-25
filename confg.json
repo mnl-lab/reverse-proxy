@@ -1,7 +1,7 @@
 {
     "port": 8080,
-    "strategy": "weighted-round-robin",
-    "health_check_frequency": "10s",
+    "strategy": "round-robin",
+    "health_check_frequency": "5s",
     "backends": [
         {
             "url": "http://localhost:8082",
@@ -10,6 +10,11 @@
         },
         {
             "url": "http://localhost:8083",
+            "alive": true,
+            "weight": 2
+        },
+        {
+            "url": "http://localhost:8084",
             "alive": true,
             "weight": 1
         }

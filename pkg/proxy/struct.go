@@ -19,6 +19,7 @@ type ServerPool struct {
 	Current  uint64     `json:"current"`
 	mux      sync.RWMutex
 	Strategy Strategy
+	Sticky   bool
 }
 
 type ProxyConfig struct {

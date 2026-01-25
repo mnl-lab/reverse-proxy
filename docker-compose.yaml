@@ -1,21 +1,39 @@
-
-
 services:
-  python-backend:
-    image: python:3.9-slim
-    working_dir: /app
-    volumes:
-      - ./backends/python:/app
-    command: >
-      sh -c "pip install flask && python app.py"
-    ports:
-      - "8082:8082"
-
-  node-backend:
+  backend-alpha:
     image: node:18-alpine
     working_dir: /app
     volumes:
       - ./backends/node:/app
-    command: node server.js
+    command: sh -c "npm install && node server.js"
+    environment:
+      - SERVER_ID=Node-Alpha [EU-West]
+      - SERVER_COLOR=#007BFF  # Blue
+      - PORT=8082
+    ports:
+      - "8082:8082"
+
+  backend-beta:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./backends/node:/app
+    command: sh -c "npm install && node server.js"
+    environment:
+      - SERVER_ID=Node-Beta [US-East]
+      - SERVER_COLOR=#28A745  # Green
+      - PORT=8083
     ports:
       - "8083:8083"
+
+  backend-gamma:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./backends/node:/app
+    command: sh -c "npm install && node server.js"
+    environment:
+      - SERVER_ID=Node-Gamma [AP-South]
+      - SERVER_COLOR=#6F42C1  # Purple
+      - PORT=8084
+    ports:
+      - "8084:8084"
