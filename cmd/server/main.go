@@ -31,6 +31,8 @@ func main() {
 		strategy = &proxy.LeastConnections{}
 	case "round-robin":
 		strategy = &proxy.RoundRobin{}
+	case "weighted-round-robin":
+		strategy = &proxy.WeightedRoundRobin{}
 	default:
 		strategy = &proxy.RoundRobin{} // Default fallback
 	}
@@ -53,6 +55,8 @@ func main() {
 		backend := &proxy.Backend{
 			URL:   parsedURL,
 			Alive: b.Alive,
+			Weight: b.Weight,
+			
 		}
 		serverPool.AddBackend(backend)
 

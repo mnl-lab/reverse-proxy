@@ -58,6 +58,16 @@ type RoundRobin struct {
 	Current uint64
 }
 
+// Least-Connections Strategy
+type LeastConnections struct {}
+
+// weighted round robin
+type WeightedRoundRobin struct {
+	Current uint64
+}
+// TODO: add weighted least conn
+
+// getPeer for round roibn
 func (rr *RoundRobin) GetPeer(backends []*Backend) (*Backend, error) {
     // if no backends are available
 	if len(backends) == 0 {
@@ -82,9 +92,7 @@ func (rr *RoundRobin) GetPeer(backends []*Backend) (*Backend, error) {
 	return nil, errors.New("no valid peer found")
 }
 
-// Least-Connections Strategy
-type LeastConnections struct {}
-
+// get peer for least conn
 func (lc *LeastConnections) GetPeer(backends []*Backend) (*Backend, error) {
     
 	var bestPeer *Backend
@@ -112,4 +120,44 @@ func (lc *LeastConnections) GetPeer(backends []*Backend) (*Backend, error) {
 		return nil, errors.New("no available bachend is found")
 	}
 	return bestPeer, nil
+}
+
+func (wrr *WeightedRoundRobin) GetPeer(backends []*Backend) (*Backend, error){
+	// if no backends are available
+	if len(backends) == 0 {
+		return nil, errors.New("no backends available")
+	}
+	// STEP 1: Calculate the Total Weight of all ALIVE backends
+	var totalWeight int
+	for _, b := range backends {
+		if b.IsAlive() {
+			totalWeight += b.Weight
+		}
+	}
+
+	if totalWeight == 0 {
+		return nil, errors.New("no alive backends available")
+	}
+	
+	// STEP 2:  
+	// Get the next number and mod it by totalWeight. 
+	// similar to regular round robin
+	next := atomic.AddUint64(&wrr.Current, 1)
+	target := int(next % uint64(totalWeight))
+
+	// STEP 3: Find which server owns this "target" number
+	for _, b := range backends {
+		if !b.IsAlive() {
+			continue
+		}
+
+		// subtract this backend's weight from the target.
+		// when target drops below 0, we have found THE ONE.
+		target -= b.Weight
+		if target < 0 {
+			return b, nil
+		}
+	}
+	
+	return nil, errors.New("no valid peer found")
 }

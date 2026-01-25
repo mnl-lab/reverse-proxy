@@ -13,6 +13,7 @@ type ConfigFromFile struct {
 	Backends        []struct {
 		URL   string `json:"url"`
 		Alive bool   `json:"alive"`
+		Weight int    `json:"weight"`
 	} `json:"backends"`
 }
 

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	// "time"
 )
-
+// to be used when the docker microservices are unavailable
 func main() {
 	// We will launch 3 servers in parallel using Goroutines
 	ports := []string{"8084", "8082", "8083"}
