@@ -2,25 +2,28 @@ package proxy
 
 import (
 	"log"
-	"net"
+	// "net"
+	"net/http"
 	"net/url"
 	"time"
 )
 
-// isAlive tries to connect to the backend URL via TCP.
+// isAlive tries to connect to the backend URL via http GET to avoid race consitions.
 // it returns true if the connection succeeds, false otherwise.
+// Replace the net.DialTimeout logic in health.go
 func isAlive(u *url.URL) bool {
-	timeout := 2 * time.Second
-	// using DialTimeout because it's faster and aligns more with our objective
-	conn, err := net.DialTimeout("tcp", u.Host, timeout)
-
-	if err != nil {
-		log.Println("Site unreachable")
-		return false
-	}
-	// if no error is encountered, then the site is alive
-	conn.Close()
-	return true
+    timeout := 2 * time.Second
+	// make request
+    client := http.Client{
+        Timeout: timeout,
+    }
+    resp, err := client.Get(u.String())
+    if err != nil {
+        log.Println("Site unreachable:", err)
+        return false
+    }
+    defer resp.Body.Close()
+    return resp.StatusCode == http.StatusOK
 }
 
 // loops forever and performs checks every  specified interval

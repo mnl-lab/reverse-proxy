@@ -4,9 +4,11 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"sync/atomic"
+	"time"
 )
 
 // handle incoming HTTP request and forward it to a backend
@@ -41,6 +43,7 @@ func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
 		peer, err = s.Strategy.GetPeer(backends)
 
 		if err != nil {
+			// If no backends are available, return 503 
 			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -60,11 +63,23 @@ func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
 
 	// Safely increment connections
 	atomic.AddInt64(&peer.CurrentConns, 1)
+	// decrement the count upon completion 
 	defer atomic.AddInt64(&peer.CurrentConns, -1)
 
 	// setting up the reverse proxy
 	// using the standart library helper
 	rp := httputil.NewSingleHostReverseProxy(peer.URL)
+
+	// handle backend timeouts and connection logic 
+	// this ensures slow backends don't hang the proxy indefinitely
+	rp.Transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second, // max time to connect to backend
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
 
 	// update the headers to allow the backend to know the original host
 	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
@@ -72,11 +87,11 @@ func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
 	// logging
 	log.Println("forwarding request to: ", peer.URL)
 
-	// assign a custom error handler
+	// assign a custom error handler 
 	rp.ErrorHandler = func(writer http.ResponseWriter, request *http.Request, e error) {
 		log.Printf("[%s] %s\n", peer.URL.Host, e.Error())
 
-		// mark the backend as dead immediately
+		// mark the backend as dead immediately 
 		s.SetBackendStatus(peer.URL, false)
 
 		// tell the user something went wrong
@@ -85,6 +100,7 @@ func (s *ServerPool) Proxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// forward request -> Wait for Response -> Copy back to user
+	// ServeHTTP uses the request context automatically, handling client cancellations [cite: 64, 84]
 	rp.ServeHTTP(w, r)
 
 }

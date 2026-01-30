@@ -54,6 +54,10 @@ app.get('/', (req, res) => {
     res.send(html);
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`${SERVER_ID} running on port ${PORT}`);
 });
+
+// Set keepAliveTimeout higher than the proxy's idle timeout
+server.keepAliveTimeout = 65000; 
+server.headersTimeout = 66000;
