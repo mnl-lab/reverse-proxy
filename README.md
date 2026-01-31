@@ -117,10 +117,12 @@ go run cmd/server/main.go -sticky=false
 
 ### Demo videos
 
-These are the full demo recordings (download and watch locally):
+The demo recordings are published in GitHub Releases to keep the repository lightweight:
 
-1. Without sticky sessions (includes initialization): [demo_videos/go_demo.mp4](demo_videos/go_demo.mp4)
-2. With sticky sessions: [demo_videos/go_demo_sticky.mp4](demo_videos/go_demo_sticky.mp4)
+- Release page: https://github.com/mnl-lab/reverse-proxy/releases/tag/RP_demo
+- Assets (download and watch locally):
+  - Without sticky sessions (includes initialization): `go_demo.mp4`
+  - With sticky sessions: `go_demo_sticky.mp4`
 
 ---
 
