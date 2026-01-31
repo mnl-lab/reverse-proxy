@@ -115,6 +115,13 @@ go run cmd/server/main.go
 go run cmd/server/main.go -sticky=false
 ```
 
+### Demo videos
+
+These are the full demo recordings (download and watch locally):
+
+1. Without sticky sessions (includes initialization): [demo_videos/go_demo.mp4](demo_videos/go_demo.mp4)
+2. With sticky sessions: [demo_videos/go_demo_sticky.mp4](demo_videos/go_demo_sticky.mp4)
+
 ---
 
 ## 🧪 Functional Verification
@@ -173,18 +180,5 @@ go test -v ./tests
 - Browser security warning: expected with self-signed certs; click Advanced → Proceed.
 - WAF misses attacks: if you modify the dataset, run `python ai_waf/train.py` locally to update the model, then rebuild with `docker-compose up --build -d`.
 
----
 
-## 🎥 Demo Videos
 
-### 1) Without sticky sessions (includes initialization)
-
-<video src="go_demo.mp4" controls></video>
-
-If the video doesn't render in your Markdown viewer, download it here: [go_demo.mp4](go_demo.mp4)
-
-### 2) With sticky sessions
-
-<video src="go_demo_sticky.mp4" controls></video>
-
-If the video doesn't render in your Markdown viewer, download it here: [go_demo_sticky.mp4](go_demo_sticky.mp4)
