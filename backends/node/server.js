@@ -22,7 +22,7 @@ app.get('/', (req, res) => {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>MNL Dashboard</title>
+            <title>RP Dashboard</title>
             <style>
                 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; }
                 .header { background: ${SERVER_COLOR}; color: white; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
