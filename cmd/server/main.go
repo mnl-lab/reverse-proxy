@@ -12,17 +12,18 @@ import (
 )
 
 func main() {
+	// Example:
+	//   go run ./cmd/server --config=confg.json
+	// (Go's flag package accepts both -config=... and --config=...)
+	var configFile string
+	flag.StringVar(&configFile, "config", "confg.json", "config file path")
+	flag.StringVar(&configFile, "c", "confg.json", "config file path (shorthand)")
 
-	// parse flags to use: go run main.go -config=config.json
-	configFile := flag.String("config", "confg.json", "config file path")
-	// for testing and grading (and sanity) purposes, i'll add a flah to disable sticky session from terminal
-	// new command is: go run cmd/server/main.go -sticky=false
-	
 	stickyEnabled := flag.Bool("sticky", true, "enable sticky sessions")
 	flag.Parse()
 
 	// load configurations
-	conf, err := config.LoadConfig(*configFile)
+	conf, err := config.LoadConfig(configFile)
 	if err != nil {
 		log.Fatal("failed to load config", err)
 	}
@@ -58,10 +59,9 @@ func main() {
 		}
 		// make a backend object
 		backend := &proxy.Backend{
-			URL:   parsedURL,
-			Alive: b.Alive,
+			URL:    parsedURL,
+			Alive:  b.Alive,
 			Weight: b.Weight,
-			
 		}
 		serverPool.AddBackend(backend)
 

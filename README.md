@@ -1,63 +1,220 @@
-# 🛡️ Secure AI-Enhanced Load Balancer
+# Concurrent Load‑Balancing Reverse Proxy with AI WAF (Go)
 
-![Go](https://img.shields.io/badge/Go-1.20+-00ADD8?style=flat&logo=go)
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat&logo=python)
-![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=flat&logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green)
+A reverse proxy built in Go that distributes traffic across multiple backend services using concurrent, thread‑safe load‑balancing strategies. The system includes continuous health monitoring, a runtime admin API, sticky sessions, TLS termination, and an optional AI‑based Web Application Firewall. All services can be run locally using Docker.
 
-A production-ready reverse proxy that couples a Go control plane, multiple Node.js backends, and a Python-based AI WAF. It delivers TLS termination, sticky sessions, health checks, dynamic backend management, and ML-driven inspection for SQLi and XSS payloads.
+This project is designed to be readable, extensible, and close to how a small production gateway might actually be wired together.
 
 ---
 
-## 🏗️ Architecture Overview
+## Overview
 
-- **Control Plane (Go):** Reverse proxy logic, load-balancing strategies, admin APIs, and health monitoring.
-- **Intelligence Layer (Python):** Flask service hosting a Scikit-Learn classifier that labels requests as safe or malicious.
-- **Application Layer (Node.js):** Three color-coded demo services to visualize routing decisions.
+At its core, the proxy accepts incoming HTTPS requests, selects a healthy backend using a configurable strategy, forwards the request, and returns the response to the client. Backend availability is monitored continuously in the background, and backends can be added or removed at runtime via an admin API.
+
+In addition to the core proxy logic, the project includes:
+
+* Sticky sessions for session affinity
+* TLS support
+* A Python‑based AI WAF for request inspection
+* Docker and docker‑compose for local orchestration
+
+The extra components are optional at runtime but are part of the intended system design.
+
+---
+
+## System Architecture
+
+The system is composed of three main layers:
+
+### 1. Reverse Proxy (Go)
+
+* Request routing and forwarding
+* Load‑balancing strategies
+* Sticky session handling
+* Health monitoring
+* Admin API
+
+### 2. AI Web Application Firewall (Python, optional)
+
+* Receives requests before forwarding
+* Uses an ML classifier to detect malicious payloads
+* Blocks suspicious requests (SQLi, XSS)
+
+### 3. Backend Services (Node.js)
+
+* Simple demo applications
+* Color‑coded responses to visualize routing behavior
 
 ![System Diagram](image.png)
 
 ---
 
-## 📂 Project Structure
+## Core Data Models
 
-```text
-GO_FINAL_PROJECT/
-├── ai_waf/
-│   ├── app.py            # Flask API around the ML model
-│   ├── train.py          # Training script for the logistic regression model
-│   ├── requirements.txt  # Python dependencies
-│   ├── Dockerfile        # Container config for AI service
-│   └── waf_model.pkl     # Saved vectorizer + model bundle
-├── backends/
-│   └── node/
-│       ├── server.js     # Demo service (blue/green/purple variants)
-│       └── package.json
-├── cmd/server/main.go    # Proxy entrypoint
-├── pkg/
-│   ├── config/           # Configuration loader
-│   └── proxy/            # Load-balancer strategies, handlers, health checks
-├── tests/                # Go unit tests for strategies and handlers
-├── confg.json            # Runtime settings
-├── docker-compose.yaml   # Python WAF + Node backends orchestration
-├── cert.pem              # TLS cert (user-generated)
-├── key.pem               # TLS key (user-generated)
-└── README.md
+### Backend
+
+```go
+type Backend struct {
+    URL          *url.URL     `json:"url"`
+    Alive        bool         `json:"alive"`
+    CurrentConns int64        `json:"current_connections"`
+    mux          sync.RWMutex
+}
+```
+
+### ServerPool
+
+```go
+type ServerPool struct {
+    Backends []*Backend `json:"backends"`
+    Current  uint64     `json:"current"`
+}
+```
+
+### ProxyConfig
+
+```go
+type ProxyConfig struct {
+    Port            int           `json:"port"`
+    Strategy        string        `json:"strategy"`
+    HealthCheckFreq time.Duration `json:"health_check_frequency"`
+}
 ```
 
 ---
 
-## ⚙️ Configuration & Strategies
+## Load Balancing
 
-The system behavior is defined in `confg.json`. You can hot-swap strategies by changing the `strategy` field.
+Backend selection is abstracted behind a strategy interface, allowing different algorithms to be swapped without changing request‑handling logic.
 
 Supported strategies:
 
-- `round-robin` (default): cycles through servers sequentially.
-- `weighted-round-robin`: distributes traffic based on each backend's `weight`.
-- `least-conn`: routes traffic to the server with the fewest active connections.
+* **Round‑Robin**: sequential distribution using an atomic counter
+* **Least‑Connections**: selects the backend with the lowest active connection count
+* **Weighted Round‑Robin**: distributes traffic based on backend capacity
 
-Example `confg.json`:
+All shared state is protected using `sync.RWMutex` and `sync/atomic`. Only backends marked as healthy are eligible to receive traffic. If no backend is available, the proxy returns `503 Service Unavailable`.
+
+---
+
+## Proxy Behavior & Context Handling
+
+The proxy is implemented using `net/http` and `httputil.ReverseProxy`.
+
+Key behaviors:
+
+* Request contexts are forwarded to backends
+* Backend work is canceled if the client disconnects
+* Connection counters are incremented before forwarding and decremented after completion
+* Backend failures detected during request handling immediately mark the backend as unhealthy
+
+---
+
+## Health Monitoring
+
+A background goroutine runs periodic health checks:
+
+* Triggered using `time.Ticker`
+* Sends lightweight HTTP probes to each backend
+* Updates backend state in a thread‑safe manner
+* Logs state transitions when backends go up or down
+
+This allows the proxy to react automatically to backend failures without manual intervention.
+
+---
+
+## Admin API
+
+The admin API runs on port `:8081` and allows runtime inspection and modification of the server pool.
+
+### Endpoints
+
+#### GET /status
+
+Returns the current state of the system:
+
+```json
+{
+  "total_backends": 3,
+  "active_backends": 2,
+  "backends": [
+    {
+      "url": "http://localhost:8082",
+      "alive": true,
+      "current_connections": 4
+    }
+  ]
+}
+```
+
+#### POST /backends
+
+```bash
+curl -X POST http://localhost:8081/backends \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://localhost:8084"}'
+```
+
+#### DELETE /backends
+
+```bash
+curl -X DELETE http://localhost:8081/backends \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://localhost:8083"}'
+```
+
+---
+
+## Sticky Sessions
+
+Sticky sessions provide session affinity so that a client is consistently routed to the same backend.
+
+* Can be based on client IP or cookies
+* Useful for stateful backend services
+* Implemented on top of existing load‑balancing strategies
+
+Sticky sessions can be enabled or disabled at startup.
+
+---
+
+## AI Web Application Firewall
+
+An optional AI‑based WAF runs as a separate Python service:
+
+* Implemented with Flask and Scikit‑Learn
+* Classifies requests as safe or malicious
+* Detects common attack patterns such as SQL injection and XSS
+
+Example behavior:
+
+* `/?search=shoes` → `200 OK`
+* `/?search=' OR 1=1 --` → `403 Forbidden`
+
+The WAF is decoupled from the proxy and can be removed without affecting core functionality.
+
+---
+
+## Docker & Project Initialization
+
+Docker is an intentional part of the project and is used to orchestrate supporting services.
+
+The following components are containerized:
+
+* AI WAF (Python)
+* Backend services (Node.js)
+
+### Start supporting services
+
+```bash
+docker-compose up --build -d
+```
+
+This launches the WAF and backend services required by the proxy. The Go proxy itself can be run locally or containerized separately.
+
+---
+
+## Configuration
+
+Example configuration file:
 
 ```json
 {
@@ -65,122 +222,72 @@ Example `confg.json`:
   "strategy": "weighted-round-robin",
   "health_check_frequency": "10s",
   "backends": [
-    { "url": "http://localhost:8082", "alive": true, "weight": 3 },
-    { "url": "http://localhost:8083", "alive": true, "weight": 1 },
-    { "url": "http://localhost:8084", "alive": true, "weight": 1 }
+    { "url": "http://localhost:8082", "weight": 3 },
+    { "url": "http://localhost:8083", "weight": 1 }
   ]
 }
 ```
 
 ---
 
-## 🚀 Getting Started
+## Running the Proxy
 
-### 1) Fetch the source
-
-Option A (Git):
+### Generate TLS certificates
 
 ```bash
-git clone https://github.com/mnl-lab/reverse-proxy.git
-cd reverse-proxy
+openssl req -x509 -newkey rsa:4096 \
+  -keyout key.pem -out cert.pem \
+  -days 365 -nodes -subj "/CN=localhost"
 ```
-
-Option B (Zip): download the provided ZIP file and extract it.
-
-### 2) Generate TLS certificates
-
-The proxy refuses to start without valid TLS certificates.
-
-```bash
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
-```
-
-Note: if `openssl` is missing on Windows, use Git Bash.
-
-### 3) Start supporting services
-
-Launch the AI WAF and Node.js backends using Docker:
-
+### Start supporting services
 ```bash
 docker-compose up --build -d
 ```
 
-### 4) Run the Go proxy
+### Start the proxy
 
 ```bash
-# Standard run (sticky sessions enabled by default)
-go run cmd/server/main.go
+go mod tidy
+go run cmd/server/main.go 
+```
 
-# Disable sticky sessions (visual load balancing)
+Sticky sessions can be disabled:
+
+```bash
 go run cmd/server/main.go -sticky=false
 ```
 
-### Demo videos
+---
 
-The demo recordings are published in GitHub Releases to keep the repository lightweight:
+## Demo Videos
 
-- Release page: https://github.com/mnl-lab/reverse-proxy/releases/tag/RP_demo
-- Assets (download and watch locally):
-  - Without sticky sessions (includes initialization): `go_demo.mp4`
-  - With sticky sessions: `go_demo_sticky.mp4`
+Demo recordings showing routing behavior, health checks, and sticky sessions are hosted in GitHub Releases to keep the repository lightweight:
+
+[https://github.com/mnl-lab/reverse-proxy/releases](https://github.com/mnl-lab/reverse-proxy/releases)
 
 ---
 
-## 🧪 Functional Verification
+## Tests
 
-### 1) Load balancing
+Tests cover:
 
-Visit `https://localhost:8080` (accept the self-signed cert). Refresh to watch the dashboard header colors rotate based on your strategy.
+* Load‑balancing behavior
+* Backend failover and recovery
+* Concurrency safety under parallel requests
 
-### 2) AI security (WAF)
-
-- Safe request: `https://localhost:8080/?search=shoes` → ✅ `200 OK`
-- SQL injection: `https://localhost:8080/?search=' OR 1=1 --` → ⛔ `403 Forbidden`
-- Obfuscated attack: `https://localhost:8080/?search=' OR 2=2` → ⛔ `403 Forbidden` (normalization logic)
-
-### 3) Admin API (dynamic management)
-
-Manage backends at runtime via `http://localhost:8081`.
-
-Get pool status:
+Run all tests with:
 
 ```bash
-curl http://localhost:8081/status
-```
-
-Add a new backend:
-
-```bash
-curl -X POST http://localhost:8081/backends \
-  -H "Content-Type: application/json" \
-  -d '{"url": "http://localhost:8085"}'
-```
-
-Remove a backend (simulate failure):
-
-```bash
-curl -X DELETE http://localhost:8081/backends \
-  -H "Content-Type: application/json" \
-  -d '{"url": "http://localhost:8084"}'
+go test ./...
 ```
 
 ---
 
-## 📊 Automated Tests
+## Notes
 
-Execute the Go unit suite to verify load balancing and failover logic:
-
-```bash
-go test -v ./tests
-```
-
----
-
-## 🔧 Troubleshooting
-
-- `docker: no such file or directory`: ensure `ai_waf/Dockerfile` has no hidden `.txt` extension.
-- Browser security warning: expected with self-signed certs; click Advanced → Proceed.
-- WAF misses attacks: if you modify the dataset, run `python ai_waf/train.py` locally to update the model, then rebuild with `docker-compose up --build -d`.
+* Self‑signed TLS certificates will trigger browser warnings
+* Docker must be installed to run the WAF and backend services
+* The system is designed so optional components can be removed without affecting the core proxy
 
 
 
