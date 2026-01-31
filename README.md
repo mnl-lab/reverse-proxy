@@ -172,3 +172,19 @@ go test -v ./tests
 - `docker: no such file or directory`: ensure `ai_waf/Dockerfile` has no hidden `.txt` extension.
 - Browser security warning: expected with self-signed certs; click Advanced → Proceed.
 - WAF misses attacks: if you modify the dataset, run `python ai_waf/train.py` locally to update the model, then rebuild with `docker-compose up --build -d`.
+
+---
+
+## 🎥 Demo Videos
+
+### 1) Without sticky sessions (includes initialization)
+
+<video src="go_demo.mp4" controls></video>
+
+If the video doesn't render in your Markdown viewer, download it here: [go_demo.mp4](go_demo.mp4)
+
+### 2) With sticky sessions
+
+<video src="go_demo_sticky.mp4" controls></video>
+
+If the video doesn't render in your Markdown viewer, download it here: [go_demo_sticky.mp4](go_demo_sticky.mp4)
